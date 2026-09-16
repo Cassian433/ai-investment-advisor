@@ -335,8 +335,8 @@ def slide_ai_part(prs):
     pill(s, x2 + 3.14, py, 1.36, 0.34, "Negative", RED)
 
     textbox(s, M, y + h + 0.42, CW, 0.4,
-            [{"text": "Both models are small and easy to explain. Neither one "
-                      "predicts prices, and neither is a guarantee.",
+            [{"text": "Both models are small enough to explain on one slide, and "
+                      "both run live on every request.",
               "size": 13, "color": MUTED, "space_after": 0}])
     page_number(s, 5)
 
@@ -352,8 +352,8 @@ def slide_demo(prs):
     textbox(s, M, 3.80, 4.9, 1.2,
             [{"text": "Example: 5 lakh, 5 years, moderate risk.", "size": 18,
               "color": TEXT, "space_after": 10, "line_spacing": 1.2},
-             {"text": "The app is live now. Built with React and FastAPI, "
-                      "code on GitHub.", "size": 13, "color": MUTED,
+             {"text": "Live now. React and FastAPI, with a built-in assistant "
+                      "on Claude Sonnet. Code on GitHub.", "size": 13, "color": MUTED,
               "space_after": 0, "line_spacing": 1.2}])
 
     shot = Path(__file__).with_name("screenshot-demo.png")

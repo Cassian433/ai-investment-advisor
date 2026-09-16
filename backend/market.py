@@ -108,6 +108,39 @@ def _fetch_prices() -> dict[str, tuple[float, float]]:
     return results
 
 
+INDICES = [
+    {"ticker": "^NSEI", "name": "NIFTY 50", "fallback": (25120.5, 0.42)},
+    {"ticker": "^BSESN", "name": "SENSEX", "fallback": (82340.2, 0.38)},
+    {"ticker": "INR=X", "name": "USD/INR", "fallback": (88.12, -0.05)},
+]
+_index_cache: dict = {"at": 0.0, "value": None}
+
+
+def get_indices() -> list[dict]:
+    with _lock:
+        if _index_cache["value"] is not None and time.time() - _index_cache["at"] < PRICE_TTL:
+            return _index_cache["value"]
+    live: dict[str, tuple[float, float]] = {}
+    with ThreadPoolExecutor(max_workers=len(INDICES)) as pool:
+        futures = {pool.submit(_fetch_one, ix["ticker"]): ix["ticker"] for ix in INDICES}
+        try:
+            for future in as_completed(futures, timeout=PRICE_TIMEOUT):
+                try:
+                    live[futures[future]] = future.result()
+                except Exception:
+                    continue
+        except TimeoutError:
+            pass
+    out = []
+    for ix in INDICES:
+        price, change = live.get(ix["ticker"], ix["fallback"])
+        out.append({"ticker": ix["ticker"], "name": ix["name"], "price": price, "change_pct": change, "live": ix["ticker"] in live})
+    with _lock:
+        _index_cache["at"] = time.time()
+        _index_cache["value"] = out
+    return out
+
+
 def get_prices() -> list[dict]:
     with _lock:
         if _price_cache["value"] is not None and time.time() - _price_cache["at"] < PRICE_TTL:

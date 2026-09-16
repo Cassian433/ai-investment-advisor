@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
 
+from backend import chat as chat_mod
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -14,6 +15,7 @@ from pydantic import BaseModel, Field
 
 from backend import market, projection, risk_model
 from backend.allocator import allocate
+
 
 DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 
@@ -76,13 +78,32 @@ def analyse(request: AnalyseRequest) -> dict:
 
 @app.get("/api/prices")
 def prices() -> dict:
-    return {"picks": market.get_prices(), "generated_at": _now_iso()}
+    return {"picks": market.get_prices(), "indices": market.get_indices(), "generated_at": _now_iso()}
 
 
 @app.get("/api/news")
 def news() -> dict:
     items, market_mood = market.get_news()
     return {"news": items, "market_mood": market_mood}
+
+
+class ChatRequest(BaseModel):
+    question: str
+    history: list[dict] = []
+    inputs: dict | None = None
+    result: dict | None = None
+
+
+@app.get("/api/chat/suggested")
+def chat_suggested(stage: str = "result") -> dict:
+    return {"questions": chat_mod.SUGGESTED_START if stage == "start" else chat_mod.SUGGESTED}
+
+
+@app.post("/api/chat")
+def chat_endpoint(req: ChatRequest) -> dict:
+    context = chat_mod.build_context(req.result, req.inputs)
+    answer = chat_mod.ask(req.question, req.history, context)
+    return {"answer": answer}
 
 
 if (DIST / "index.html").exists():

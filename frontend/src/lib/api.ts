@@ -58,9 +58,17 @@ export async function analyse(inputs: Inputs): Promise<Analysis> {
   return res.json()
 }
 
-export async function fetchPrices(): Promise<Pick[]> {
+export type Index = { ticker: string; name: string; price: number; change_pct: number; live: boolean }
+
+export async function fetchPrices(): Promise<{ picks: Pick[]; indices: Index[] }> {
   const res = await fetch('/api/prices')
   if (!res.ok) throw new Error(`prices failed: ${res.status}`)
   const data = await res.json()
-  return data.picks
+  return { picks: data.picks, indices: data.indices ?? [] }
+}
+
+export async function fetchNews(): Promise<{ news: NewsItem[]; market_mood: Mood }> {
+  const res = await fetch('/api/news')
+  if (!res.ok) throw new Error(`news failed: ${res.status}`)
+  return res.json()
 }
