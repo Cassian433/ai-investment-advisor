@@ -1,0 +1,74 @@
+{
+  "prices": {
+    "RELIANCE.NS": {
+      "price": 1254.0,
+      "change_pct": 1.51
+    },
+    "TCS.NS": {
+      "price": 2226.5,
+      "change_pct": -1.09
+    },
+    "HDFCBANK.NS": {
+      "price": 718.55,
+      "change_pct": 0.28
+    },
+    "GOLDBEES.NS": {
+      "price": 124.89,
+      "change_pct": 1.03
+    },
+    "BTC-INR": {
+      "price": 7268649.0,
+      "change_pct": 0.16
+    }
+  },
+  "news": [
+    {
+      "title": "Nifty 50 closes at a record high as banking and IT stocks extend gains",
+      "source": "Economic Times",
+      "url": "#",
+      "published": "2026-09-15T10:32:00+05:30"
+    },
+    {
+      "title": "RBI holds repo rate at 5.75 percent, flags softer food inflation outlook",
+      "source": "Reuters",
+      "url": "#",
+      "published": "2026-09-14T11:05:00+05:30"
+    },
+    {
+      "title": "Reliance Industries commissions second phase of Jamnagar solar cell plant",
+      "source": "Mint",
+      "url": "#",
+      "published": "2026-09-12T09:18:00+05:30"
+    },
+    {
+      "title": "TCS wins multi-year cloud transformation deal with European retailer",
+      "source": "Economic Times",
+      "url": "#",
+      "published": "2026-09-11T16:47:00+05:30"
+    },
+    {
+      "title": "Foreign portfolio investors turn net buyers of Indian equities in September",
+      "source": "Mint",
+      "url": "#",
+      "published": "2026-09-10T18:20:00+05:30"
+    },
+    {
+      "title": "Gold prices slip from month high as rupee strengthens against the dollar",
+      "source": "Reuters",
+      "url": "#",
+      "published": "2026-09-09T14:55:00+05:30"
+    },
+    {
+      "title": "HDFC Bank reports steady deposit growth in provisional second-quarter update",
+      "source": "Economic Times",
+      "url": "#",
+      "published": "2026-09-08T08:40:00+05:30"
+    },
+    {
+      "title": "India factory output growth eases in August on weaker capital goods demand",
+      "source": "Reuters",
+      "url": "#",
+      "published": "2026-09-05T12:10:00+05:30"
+    }
+  ]
+}
