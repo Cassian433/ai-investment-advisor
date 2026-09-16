@@ -238,6 +238,18 @@ def shot(slide, name, x, y, w=None, h=None):
         slide.shapes.add_picture(str(p), Inches(x), Inches(y), **kw)
 
 
+def code_block(slide, x, y, w, h, code, size=10, title=None, color=GREEN):
+    rect(slide, x, y, w, h, fill=RGBColor(0x07, 0x0A, 0x10), line=EDGE,
+         radius=0.05)
+    if title:
+        chip(slide, x + w - 1.55, y + 0.12, 1.4, 0.24, title, color)
+    lines = []
+    for ln in code.rstrip("\n").split("\n"):
+        lines.append({"text": ln if ln else " ", "size": size, "color": TEXT,
+                      "mono": True, "space_after": 0, "line_spacing": 1.15})
+    textbox(slide, x + 0.22, y + 0.18, w - 0.44, h - 0.3, lines)
+
+
 # ----------------------------------------------------------------- slides ---
 def s01_title(prs):
     s = new_slide(prs)
@@ -365,7 +377,6 @@ def s04_architecture(prs):
     s = new_slide(prs)
     slide_title(s, "System Architecture", "Three tier design")
 
-    # tier labels on the left
     tiers = [("CLIENT", 1.95), ("API", 3.35), ("SERVICES", 4.75), ("EXTERNAL", 6.05)]
     for t, y in tiers:
         label(s, M, y + 0.28, 1.1, t, MUTED, size=9, align=PP_ALIGN.LEFT)
@@ -373,48 +384,59 @@ def s04_architecture(prs):
                 width=0.75, dashed=True)
 
     x0 = 2.1
+    full = SLIDE_W - M - x0
     # client
-    node(s, x0, 1.95, 3.6, 0.8, "React + TypeScript SPA",
+    node(s, x0, 1.95, 5.2, 0.8, "React + TypeScript SPA",
          "Vite, Tailwind, Recharts, lightweight-charts", BLUE)
-    node(s, x0 + 3.9, 1.95, 3.3, 0.8, "Built-in assistant",
-         "chat UI, streams answers from AI layer", PURPLE)
+    node(s, x0 + 5.4, 1.95, full - 5.4, 0.8, "Built-in assistant",
+         "chat panel, asks the AI layer about the plan", PURPLE)
 
     # api
-    node(s, x0, 3.35, 7.2, 0.8, "FastAPI backend",
+    node(s, x0, 3.35, full, 0.8, "FastAPI backend",
          "POST /api/analyse   GET /api/prices   GET /api/news   "
-         "Pydantic validation, CORS, serves the SPA build", ACCENT)
+         "POST /api/chat   Pydantic validation, CORS, serves the SPA build",
+         ACCENT)
 
-    # services
+    # services (5 columns)
     sv = [("risk_model.py", "sklearn LogisticRegression", BLUE),
           ("allocator.py", "anchor interpolation", PURPLE),
+          ("projection.py", "monthly compounding", GREEN),
           ("market.py", "yfinance, cache, sentiment", TEAL),
-          ("projection.py", "monthly compounding", GREEN)]
-    sw = 2.55
+          ("ai_layer.py", "agentic harness, prompt + validate", PURPLE)]
+    n = len(sv)
+    gap = 0.15
+    sw = (full - gap * (n - 1)) / n
+    cols = []
     for i, (t, sub, c) in enumerate(sv):
-        node(s, x0 + i * (sw + 0.15), 4.75, sw, 0.8, t, sub, c, mono=True,
-             title_size=12)
+        x = x0 + i * (sw + gap)
+        cols.append(x + sw / 2)
+        node(s, x, 4.75, sw, 0.8, t, sub, c, mono=True, title_size=11,
+             sub_size=8)
 
-    # external
-    ex = [("Yahoo Finance API", "NSE tickers, BTC-INR, headlines", TEAL),
-          ("Claude Sonnet", "reasoning layer via agentic harness", PURPLE),
-          ("fallback.json", "last good prices and news on disk", MUTED)]
-    ew = 3.45
-    for i, (t, sub, c) in enumerate(ex):
-        node(s, x0 + i * (ew + 0.15), 6.05, ew, 0.8, t, sub, c)
+    # external, aligned under market.py and ai_layer.py
+    xm = x0 + 3 * (sw + gap)
+    node(s, x0, 6.05, 2 * sw + gap, 0.8, "No external dependency",
+         "risk, allocation and projection run fully in-process", MUTED)
+    node(s, x0 + 2 * (sw + gap), 6.05, sw, 0.8, "fallback.json",
+         "last good prices and news", MUTED, title_size=11, sub_size=8)
+    node(s, xm, 6.05, sw, 0.8, "Yahoo Finance API",
+         "NSE tickers, BTC-INR, headlines", TEAL, title_size=11, sub_size=8)
+    node(s, xm + sw + gap, 6.05, sw, 0.8, "Claude Sonnet",
+         "reasoning layer", PURPLE, title_size=11, sub_size=8)
 
     # vertical connectors
-    connect(s, x0 + 1.8, 2.75, x0 + 1.8, 3.35, MUTED)
-    connect(s, x0 + 5.55, 2.75, x0 + 5.55, 3.35, MUTED)
-    for i in range(4):
-        cx = x0 + i * (sw + 0.15) + sw / 2
+    connect(s, x0 + 2.6, 2.75, x0 + 2.6, 3.35, MUTED)
+    connect(s, x0 + 5.4 + (full - 5.4) / 2, 2.75,
+            x0 + 5.4 + (full - 5.4) / 2, 3.35, MUTED)
+    for cx in cols:
         connect(s, cx, 4.15, cx, 4.75, MUTED)
-    # market -> yahoo, market -> fallback, assistant -> sonnet
-    mx = x0 + 2 * (sw + 0.15) + sw / 2
-    connect(s, mx, 5.55, x0 + ew / 2, 6.05, MUTED, elbow=True)
-    connect(s, mx + 0.4, 5.55, x0 + 2 * (ew + 0.15) + ew / 2, 6.05, MUTED,
-            elbow=True)
-    connect(s, x0 + (sw + 0.15) * 3 + sw - 0.3, 5.55,
-            x0 + (ew + 0.15) + ew / 2, 6.05, PURPLE, elbow=True, dashed=True)
+    connect(s, cols[3], 5.55, cols[3], 6.05, TEAL)
+    connect(s, cols[4], 5.55, cols[4], 6.05, PURPLE)
+    # market -> fallback (elbow to the left)
+    connect(s, cols[3] - 0.5, 5.55, cols[2], 6.05, MUTED, elbow=True,
+            dashed=True)
+    label(s, cols[2] - 0.3, 5.62, 1.4, "on failure", MUTED, size=8,
+          align=PP_ALIGN.LEFT)
     page_number(s, 4)
 
 
@@ -756,24 +778,253 @@ def s11_projection(prs):
     page_number(s, 11)
 
 
-def s12_stack(prs):
+def s12_api(prs):
     s = new_slide(prs)
-    slide_title(s, "Tech Stack")
-    rows = [["Layer", "Technology", "Purpose"],
-            ["Frontend", "React 18, TypeScript, Vite", "SPA, typed API client"],
-            ["Styling / charts", "Tailwind CSS, Recharts, lightweight-charts",
-             "dashboard, pie, projection, candles"],
-            ["Backend", "Python 3.12, FastAPI, Pydantic", "REST API, validation"],
-            ["Machine learning", "scikit-learn, NumPy", "Logistic Regression risk model"],
-            ["AI layer", "Claude Sonnet via agentic harness",
-             "grounded reasoning, JSON output"],
-            ["Market data", "yfinance (Yahoo Finance API)", "prices, headlines"],
-            ["NLP", "lexicon-based sentiment", "headline polarity, market mood"],
-            ["Infra", "ThreadPoolExecutor, TTL cache, fallback.json",
-             "latency and resilience"],
-            ["Deployment", "atharva.funl.bio, GitHub", "live demo, source"]]
-    table(s, M, 2.0, CW, rows, [2.4, 4.7, 4.73], row_h=0.42, font_size=12)
+    slide_title(s, "API Contract", "REST endpoints, JSON in and out")
+
+    rows = [["Method", "Path", "Body / Params", "Returns"],
+            ["GET", "/api/health", "-", "{ ok: true }"],
+            ["POST", "/api/analyse", "amount, horizon_years, risk",
+             "full plan (score, allocation, picks, news, projection)"],
+            ["GET", "/api/prices", "-", "5 picks with price, change %, live flag"],
+            ["GET", "/api/news", "-", "headlines + market_mood"],
+            ["POST", "/api/chat", "question, plan context",
+             "grounded answer from AI layer"],
+            ["GET", "/{path}", "-", "SPA fallback, serves dist/index.html"]]
+    table(s, M, 1.9, CW, rows, [0.9, 1.7, 3.4, 5.83], row_h=0.32,
+          font_size=10)
+
+    req = """POST /api/analyse
+{
+  "amount": 100000,
+  "horizon_years": 5,
+  "risk": 60
+}"""
+    res = """200 OK
+{
+  "risk_score": 58,
+  "risk_label": "Moderate",
+  "allocation": [
+    {"key": "nifty", "weight": 0.34, "amount": 34000, ...},
+    ...
+  ],
+  "picks":      [{"ticker": "RELIANCE.NS", "price": 2948.6, "live": true}, ...],
+  "market_mood": {"label": "Optimistic", "score": 0.375},
+  "projection": {"final": 179000, "final_low": 131000,
+                 "final_high": 243000, "cagr": 0.124, "points": [...]}
+}"""
+    code_block(s, M, 4.5, 4.2, 2.45, req, size=10, title="request", color=BLUE)
+    code_block(s, M + 4.4, 4.5, CW - 4.4, 2.45, res, size=8.5, title="response",
+               color=GREEN)
+    textbox(s, M, 4.18, CW, 0.3,
+            [{"text": "Pydantic model: amount > 0, horizon_years in "
+                      "Literal[1, 3, 5, 10], risk in 0..100. Invalid input "
+                      "returns 422 automatically.",
+              "size": 10, "color": MUTED, "space_after": 0}])
     page_number(s, 12)
+
+
+def s13_sequence(prs):
+    s = new_slide(prs)
+    slide_title(s, "Sequence Diagram", "POST /api/analyse, warm cache")
+
+    actors = [("Browser", BLUE), ("FastAPI", ACCENT), ("risk_model", BLUE),
+              ("allocator", PURPLE), ("projection", GREEN),
+              ("market", TEAL), ("yfinance", MUTED)]
+    n = len(actors)
+    top, bottom = 2.0, 6.35
+    xs = [M + 0.75 + i * (CW - 1.5) / (n - 1) for i in range(n)]
+    for (name, c), x in zip(actors, xs):
+        chip(s, x - 0.6, top, 1.2, 0.32, name, c)
+        connect(s, x, top + 0.32, x, bottom, EDGE, head=False, width=1.0,
+                dashed=True)
+
+    def msg(i, j, y, text, color=TEXT, dashed=False):
+        x1, x2 = xs[i], xs[j]
+        connect(s, x1, y, x2, y, color, dashed=dashed, width=1.25)
+        lx = min(x1, x2)
+        box = textbox(s, lx + 0.1, y - 0.24, 4.5, 0.22,
+                      [{"text": text, "size": 9, "color": color,
+                        "space_after": 0}])
+        box.text_frame.word_wrap = False
+
+    y = 2.7
+    msg(0, 1, y, "POST /api/analyse", BLUE); y += 0.38
+    msg(1, 2, y, "score(amount, horizon, risk)"); y += 0.3
+    msg(2, 1, y, "risk_score, label", BLUE, dashed=True); y += 0.38
+    msg(1, 3, y, "allocate(risk_score, horizon)"); y += 0.3
+    msg(3, 1, y, "weights[5]", PURPLE, dashed=True); y += 0.38
+    msg(1, 4, y, "project(amount, allocation, horizon)"); y += 0.3
+    msg(4, 1, y, "points, final, cagr", GREEN, dashed=True); y += 0.38
+    msg(1, 5, y, "get_prices() / get_news()"); y += 0.3
+    msg(5, 6, y, "fast_info, news (cache miss only)", MUTED, dashed=True); y += 0.3
+    msg(5, 1, y, "picks, news, mood", TEAL, dashed=True); y += 0.38
+    msg(1, 0, y, "200 OK JSON", BLUE, dashed=True)
+
+    textbox(s, M, 6.7, CW, 0.3,
+            [{"text": "Solid = call, dashed = return. Warm-cache round trip "
+                      "is ~15 ms; a cold cache adds one yfinance fetch "
+                      "(~1 to 3 s) bounded by a 6 s timeout.",
+              "size": 10, "color": MUTED, "space_after": 0}])
+    page_number(s, 13)
+
+
+def s14_code(prs):
+    s = new_slide(prs)
+    slide_title(s, "Core Code", "Two functions carry the whole model")
+
+    risk = """def score(amount, horizon_years, risk_pref):
+    amount_log = np.log10(max(amount, 1000.0))
+    row = np.array([[amount_log, horizon_years, risk_pref]])
+    p_low, p_mod, p_high = _MODEL.predict_proba(row)[0]
+
+    raw = p_low * 15 + p_mod * 50 + p_high * 88
+    risk_score = int(round(min(100, max(0, raw))))
+    label = _label_for(risk_score)
+    return risk_score, label, SENTENCES[label]"""
+    alloc = """def _interpolate(risk_score):
+    risk = min(100.0, max(0.0, risk_score))
+    if risk <= 50.0:
+        low, high, t = ANCHORS[0], ANCHORS[50], risk / 50
+    else:
+        low, high, t = ANCHORS[50], ANCHORS[100], (risk - 50) / 50
+    return {k: low[k] + (high[k] - low[k]) * t for k in ORDER}"""
+    proj = """monthly = (1 + annual_return) ** (1 / 12)
+values  = [amount * monthly ** m for m in range(months + 1)]"""
+
+    code_block(s, M, 1.95, 5.9, 2.75, risk, size=10, title="risk_model.py",
+               color=BLUE)
+    code_block(s, M + 6.1, 1.95, CW - 6.1, 2.05, alloc, size=9,
+               title="allocator.py", color=PURPLE)
+    code_block(s, M + 6.1, 4.15, CW - 6.1, 0.85, proj, size=10,
+               title="projection.py", color=GREEN)
+
+    notes = [("Probability-weighted score",
+              "Instead of argmax we blend class probabilities, so the "
+              "score moves smoothly with the inputs."),
+             ("Piecewise linear interpolation",
+              "Three anchor portfolios, weights interpolated between "
+              "them. O(1), no lookup table."),
+             ("Geometric compounding",
+              "Annual rate converted to monthly, one point per month "
+              "for the chart.")]
+    y = 4.95
+    for t, sub in notes:
+        textbox(s, M, y, 5.9, 0.6,
+                [{"text": t, "size": 11, "color": ACCENT, "bold": True,
+                  "space_after": 2},
+                 {"text": sub, "size": 10, "color": MUTED, "space_after": 0,
+                  "line_spacing": 1.15}])
+        y += 0.62
+    page_number(s, 14)
+
+
+def s15_stack(prs):
+    s = new_slide(prs)
+    slide_title(s, "Tech Stack & Project Structure")
+
+    layers = [
+        ("FRONTEND", BLUE, ["React 18", "TypeScript", "Vite", "Tailwind CSS",
+                            "Recharts", "lightweight-charts"]),
+        ("BACKEND", ACCENT, ["Python 3.12", "FastAPI", "Pydantic",
+                             "Uvicorn", "ThreadPoolExecutor"]),
+        ("ML / AI", PURPLE, ["scikit-learn", "NumPy", "Logistic Regression",
+                             "Claude Sonnet", "agentic harness"]),
+        ("DATA", TEAL, ["yfinance", "Yahoo Finance API", "TTL cache",
+                        "fallback.json", "lexicon NLP"]),
+        ("TOOLING", GREEN, ["Git / GitHub", "oxlint", "npm", "venv",
+                            "python-pptx"]),
+    ]
+    y = 1.95
+    limit = 7.35
+    for name, c, items in layers:
+        label(s, M, y + 0.08, 1.3, name, c, size=9, align=PP_ALIGN.LEFT)
+        x = M + 1.15
+        for it in items:
+            w = 0.2 + len(it) * 0.072
+            if x + w > limit:
+                x = M + 1.15
+                y += 0.38
+            chip(s, x, y, w, 0.28, it, c)
+            x += w + 0.08
+        y += 0.46
+
+    tree = """finance-goenka/
+├── backend/
+│   ├── main.py          # FastAPI app, routes, SPA mount
+│   ├── risk_model.py    # sklearn LogisticRegression
+│   ├── allocator.py     # anchor interpolation
+│   ├── projection.py    # compounding + band
+│   ├── market.py        # yfinance, cache, sentiment
+│   ├── ai_layer.py      # prompt builder + validation
+│   └── data/fallback.json
+├── frontend/
+│   ├── src/App.tsx
+│   ├── src/components/  # Header, RiskSlider, Charts, Chat
+│   ├── src/lib/api.ts   # typed fetch client
+│   └── vite.config.ts   # proxy /api -> :8000
+└── docs/"""
+    code_block(s, 7.6, 1.95, SLIDE_W - M - 7.6, 4.85, tree, size=9,
+               title="tree", color=MUTED)
+
+    textbox(s, M, y + 0.15, 6.5, 2.2,
+            [{"text": "Design choices", "size": 13, "color": ACCENT,
+              "bold": True, "space_after": 6},
+             {"text": "Single FastAPI process serves both the API and the "
+                      "built SPA, so deployment is one command.",
+              "size": 10, "color": TEXT, "space_after": 4, "line_spacing": 1.2},
+             {"text": "Each backend concern is one module with one public "
+                      "function. Easy to unit test and swap.",
+              "size": 10, "color": TEXT, "space_after": 4, "line_spacing": 1.2},
+             {"text": "Frontend types mirror the Pydantic models, so the "
+                      "API contract is checked at compile time.",
+              "size": 10, "color": TEXT, "space_after": 4, "line_spacing": 1.2},
+             {"text": "Model is trained at import time (seed 42), so every "
+                      "boot is reproducible with no pickle file.",
+              "size": 10, "color": TEXT, "space_after": 0, "line_spacing": 1.2}])
+    page_number(s, 15)
+
+
+def s16_perf(prs):
+    s = new_slide(prs)
+    slide_title(s, "Performance & Deployment")
+
+    rows = [["Operation", "Cold", "Warm", "Notes"],
+            ["Model training", "~40 ms", "-", "once, at startup"],
+            ["Risk inference", "-", "< 1 ms", "single predict_proba"],
+            ["Allocation + projection", "-", "< 1 ms", "pure Python, 120 points"],
+            ["Price fetch (5 tickers)", "1 to 3 s", "< 1 ms", "parallel, 60 s TTL"],
+            ["News fetch + sentiment", "1 to 2 s", "< 1 ms", "600 s TTL"],
+            ["POST /api/analyse total", "~3 s", "~15 ms", "first hit warms cache"]]
+    label(s, M, 1.95, 6, "LATENCY", ACCENT, align=PP_ALIGN.LEFT)
+    table(s, M, 2.3, 7.0, rows, [2.3, 1.1, 1.1, 2.5], row_h=0.38,
+          font_size=10)
+
+    label(s, 8.3, 1.95, 4, "DEPLOY PIPELINE", ACCENT, align=PP_ALIGN.LEFT)
+    dp = [("git push", "GitHub main branch", MUTED),
+          ("npm run build", "Vite -> frontend/dist", BLUE),
+          ("uvicorn backend.main:app", "serves API + dist on :8000", ACCENT),
+          ("reverse proxy + TLS", "atharva.funl.bio", GREEN)]
+    y, h, w = 2.3, 0.62, SLIDE_W - M - 8.3
+    for i, (t, sub, c) in enumerate(dp):
+        node(s, 8.3, y, w, h, t, sub, c, title_size=11, sub_size=9, mono=True)
+        if i < len(dp) - 1:
+            connect(s, 8.3 + 0.8, y + h, 8.3 + 0.8, y + h + 0.14, ACCENT)
+        y += h + 0.14
+
+    label(s, M, 5.25, 6, "RESILIENCE", ACCENT, align=PP_ALIGN.LEFT)
+    res = [("Timeouts", "6 s prices, 5 s news, futures cancelled after"),
+           ("Thread lock", "cache read/write is race-free under load"),
+           ("Fallback file", "atomic write via .tmp + rename"),
+           ("Live flag", "UI shows when a price is stale")]
+    for i, (t, sub) in enumerate(res):
+        x = M + (i % 2) * 3.55
+        yy = 5.55 + (i // 2) * 0.62
+        textbox(s, x, yy, 3.4, 0.6,
+                [{"text": t, "size": 11, "color": TEXT, "bold": True,
+                  "space_after": 1},
+                 {"text": sub, "size": 9, "color": MUTED, "space_after": 0}])
+    page_number(s, 16)
 
 
 def s13_demo(prs):
@@ -795,7 +1046,7 @@ def s13_demo(prs):
                 [{"text": t, "size": 13, "color": TEXT, "space_after": 0}])
         y += 0.5
     shot(s, "screenshot-demo.png", 6.35, 2.15, w=6.25)
-    page_number(s, 13)
+    page_number(s, 17)
 
 
 def s14_future(prs):
@@ -823,7 +1074,7 @@ def s14_future(prs):
     textbox(s, M, 5.6, CW, 0.6,
             [{"text": "Thank you.", "size": 28, "color": TEXT, "bold": True,
               "space_after": 0}])
-    page_number(s, 14)
+    page_number(s, 18)
 
 
 def build():
@@ -832,7 +1083,8 @@ def build():
     prs.slide_height = Inches(SLIDE_H)
     for fn in (s01_title, s02_problem, s03_overview, s04_architecture,
                s05_request_flow, s06_ml_model, s07_evaluation, s08_allocation,
-               s09_ai_pipeline, s10_market, s11_projection, s12_stack,
+               s09_ai_pipeline, s10_market, s11_projection, s12_api,
+               s13_sequence, s14_code, s15_stack, s16_perf,
                s13_demo, s14_future):
         fn(prs)
     prs.save(OUT)
