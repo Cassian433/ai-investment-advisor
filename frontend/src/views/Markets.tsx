@@ -1,117 +1,109 @@
-import { motion } from 'framer-motion'
-import { useState } from 'react'
-import { Area, AreaChart, ResponsiveContainer, Tooltip, YAxis } from 'recharts'
-import type { Pick } from '../lib/api'
+import { useEffect, useState } from 'react'
+import CandleChart from '../components/CandleChart'
+import { fetchHistory, fetchQuotes, type HistPoint, type Quote, type Range } from '../lib/api'
 import { pct, price } from '../lib/format'
-import { series } from '../lib/spark'
-import Card from '../ui/Card'
-import Sparkline from '../ui/Sparkline'
 
-function signal(p: Pick): { label: string; cls: string } {
-  if (p.change_pct > 0.8) return { label: 'BUY', cls: 'bg-up/15 text-up border-up/30' }
-  if (p.change_pct < -0.8) return { label: 'WATCH', cls: 'bg-down/15 text-down border-down/30' }
-  return { label: 'HOLD', cls: 'bg-gold/15 text-gold border-gold/30' }
+const RANGES: { key: Range; label: string }[] = [
+  { key: '1w', label: '1W' },
+  { key: '1m', label: '1M' },
+  { key: '3m', label: '3M' },
+  { key: '1y', label: '1Y' },
+  { key: '5y', label: '5Y' },
+]
+
+function fmtBig(n: number | null): string {
+  if (n == null) return '—'
+  if (n >= 1e12) return `₹${(n / 1e12).toFixed(2)} L Cr`
+  if (n >= 1e7) return `₹${(n / 1e7).toFixed(0)} Cr`
+  if (n >= 1e5) return `${(n / 1e5).toFixed(1)} L`
+  return n.toLocaleString('en-IN')
 }
 
-export default function Markets({ picks, updated }: { picks: Pick[]; updated: Date }) {
-  const [sel, setSel] = useState(picks[0]?.ticker)
-  const active = picks.find((p) => p.ticker === sel) ?? picks[0]
-  const data = active ? series(active.ticker, active.price, active.change_pct, 60, 0.015).map((v, i) => ({ i, v })) : []
-  const up = (active?.change_pct ?? 0) >= 0
-  const color = up ? '#2ea36b' : '#d64545'
+export default function Markets({ ticker, inWatchlist, onToggleWatch }: { ticker: string; inWatchlist: boolean; onToggleWatch: (t: string) => void }) {
+  const [range, setRange] = useState<Range>('3m')
+  const [quote, setQuote] = useState<Quote | null>(null)
+  const [series, setSeries] = useState<HistPoint[]>([])
+
+  useEffect(() => {
+    setQuote(null)
+    fetchQuotes([ticker]).then((q) => setQuote(q[0] ?? null))
+  }, [ticker])
+  useEffect(() => {
+    setSeries([])
+    fetchHistory([ticker], range).then((h) => setSeries(h[ticker] ?? []))
+  }, [ticker, range])
+
+  const first = series[0]?.c
+  const last = series[series.length - 1]?.c
+  const periodChange = first && last ? ((last - first) / first) * 100 : null
+  const up = (quote?.change_pct ?? 0) >= 0
+  const hi = series.length ? Math.max(...series.map((s) => s.h)) : null
+  const lo = series.length ? Math.min(...series.map((s) => s.l)) : null
+  const stats: [string, string][] = quote
+    ? [
+        ['Prev close', quote.prev_close != null ? price(quote.prev_close) : '—'],
+        ['Day range', quote.day_low != null && quote.day_high != null ? `${price(quote.day_low)} – ${price(quote.day_high)}` : '—'],
+        ['52W range', quote.year_low != null && quote.year_high != null ? `${price(quote.year_low)} – ${price(quote.year_high)}` : '—'],
+        ['Volume', quote.volume != null ? fmtBig(quote.volume) : '—'],
+        ['Mkt cap', quote.market_cap != null ? fmtBig(quote.market_cap) : '—'],
+        ['Sector', quote.sector || '—'],
+        [`${RANGES.find((r) => r.key === range)?.label} high`, hi != null ? price(hi) : '—'],
+        [`${RANGES.find((r) => r.key === range)?.label} low`, lo != null ? price(lo) : '—'],
+        [`${RANGES.find((r) => r.key === range)?.label} change`, periodChange != null ? pct(periodChange, 2) : '—'],
+      ]
+    : []
 
   return (
-    <motion.div initial="hidden" animate="show" variants={{ show: { transition: { staggerChildren: 0.06 } } }} className="cells lg:grid-cols-12">
-      <Card
-        title="Watchlist"
-        className="lg:col-span-5"
-        right={<span className="mono text-xs text-muted">Updated {updated.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}</span>}
-      >
-        <ul className="divide-y divide-line">
-          {picks.map((p) => {
-            const pu = p.change_pct >= 0
-            const s = signal(p)
-            return (
-              <li key={p.ticker}>
-                <button
-                  onClick={() => setSel(p.ticker)}
-                  className={`flex w-full items-center gap-3 rounded px-2 py-3 text-left transition-colors cursor-pointer ${
-                    p.ticker === active?.ticker ? 'bg-panel-2' : 'hover:bg-panel-2/60'
-                  }`}
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate text-sm font-medium">{p.name}</span>
-                      <span className={`rounded border px-1.5 py-px text-[10px] font-semibold ${s.cls}`}>{s.label}</span>
-                    </div>
-                    <div className="mono text-xs text-muted">
-                      {p.ticker} · {p.live ? 'live' : 'last close'}
-                    </div>
-                  </div>
-                  <Sparkline data={series(p.ticker, p.price, p.change_pct, 30)} up={pu} width={72} height={24} />
-                  <div className="mono w-28 text-right">
-                    <div className="text-sm">{price(p.price)}</div>
-                    <div className={`text-xs ${pu ? 'text-up' : 'text-down'}`}>{pct(p.change_pct, 2)}</div>
-                  </div>
-                </button>
-              </li>
-            )
-          })}
-        </ul>
-      </Card>
-
-      {active && (
-        <Card className="lg:col-span-7" highlight>
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="display text-2xl font-semibold">{active.name}</h2>
-                <span className="mono rounded border border-line px-1.5 py-px text-[11px] text-muted">{active.ticker}</span>
-              </div>
-              <div className="mono mt-2 flex items-baseline gap-3">
-                <span className="text-4xl font-medium">{price(active.price)}</span>
-                <span className={`text-base font-medium ${up ? 'text-up' : 'text-down'}`}>
-                  {up ? '▲' : '▼'} {pct(Math.abs(active.change_pct), 2).replace('+', '')} today
+    <div className="cells">
+      <section className="p-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="mono text-[18px] font-bold text-amber">{ticker.replace('.NS', '')}</span>
+              <span className="text-[15px] font-medium">{quote?.name ?? ''}</span>
+              <span className="label ml-1">{quote?.sector}</span>
+              {quote?.live && <span className="mono ml-1 border border-up/40 px-1.5 text-[9.5px] text-up">LIVE</span>}
+            </div>
+            <div className="mono mt-2 flex items-baseline gap-3">
+              <span className="text-[34px] font-medium leading-none tracking-tight">{quote ? price(quote.price) : '—'}</span>
+              {quote && (
+                <span className={`text-[13px] font-medium ${up ? 'text-up' : 'text-down'}`}>
+                  {up ? '▲' : '▼'} {pct(Math.abs(quote.change_pct), 2).replace('+', '')} TODAY
                 </span>
-              </div>
-            </div>
-            <div className="mono grid grid-cols-3 gap-4 text-right text-xs">
-              <div>
-                <div className="text-muted">Prev close</div>
-                <div className="mt-0.5 text-sm">{price(active.price / (1 + active.change_pct / 100))}</div>
-              </div>
-              <div>
-                <div className="text-muted">60d low</div>
-                <div className="mt-0.5 text-sm">{price(Math.min(...data.map((d) => d.v)))}</div>
-              </div>
-              <div>
-                <div className="text-muted">60d high</div>
-                <div className="mt-0.5 text-sm">{price(Math.max(...data.map((d) => d.v)))}</div>
-              </div>
+              )}
+              {periodChange != null && (
+                <span className={`text-[12px] ${periodChange >= 0 ? 'text-up' : 'text-down'}`}>
+                  {pct(periodChange, 2)} <span className="text-muted">{RANGES.find((r) => r.key === range)?.label}</span>
+                </span>
+              )}
             </div>
           </div>
-          <div className="mt-5 h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="tickFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={color} stopOpacity={0.35} />
-                    <stop offset="100%" stopColor={color} stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <YAxis domain={['dataMin', 'dataMax']} hide />
-                <Tooltip
-                  contentStyle={{ background: '#161b25', border: '1px solid #2b3342', borderRadius: 8, fontSize: 12, fontFamily: 'JetBrains Mono' }}
-                  labelFormatter={(i) => `${60 - Number(i)} sessions ago`}
-                  formatter={(v: unknown) => [price(Number(v)), active.ticker]}
-                />
-                <Area type="monotone" dataKey="v" stroke={color} strokeWidth={2} fill="url(#tickFill)" dot={false} isAnimationActive animationDuration={800} />
-              </AreaChart>
-            </ResponsiveContainer>
+          <div className="flex items-center gap-3">
+            <div className="flex border border-line">
+              {RANGES.map((r) => (
+                <button key={r.key} onClick={() => setRange(r.key)} className={`mono px-2.5 py-1 text-[11px] cursor-pointer ${r.key === range ? 'bg-amber font-semibold text-bg' : 'text-muted hover:text-text'}`}>
+                  {r.label}
+                </button>
+              ))}
+            </div>
+            <button onClick={() => onToggleWatch(ticker)} className={`mono border px-3 py-1 text-[11px] font-semibold uppercase tracking-wider transition-colors cursor-pointer ${inWatchlist ? 'border-line-2 text-muted hover:text-down' : 'border-amber text-amber hover:bg-amber hover:text-bg'}`}>
+              {inWatchlist ? 'Remove' : '+ Watchlist'}
+            </button>
           </div>
-          <p className="mt-4 text-sm leading-relaxed text-muted">{active.why}</p>
-        </Card>
-      )}
-    </motion.div>
+        </div>
+      </section>
+      <section className="p-0">
+        {series.length > 1 ? <CandleChart data={series} range={range} height={380} /> : <div className="mono grid h-[380px] place-items-center text-[11px] text-subtle">LOADING OHLCV</div>}
+      </section>
+      <section className="grid grid-cols-3 divide-x divide-line">
+        {stats.map(([k, v]) => (
+          <div key={k} className="flex items-center justify-between border-b border-line px-4 py-2 text-[12px]">
+            <span className="label">{k}</span>
+            <span className="mono">{v}</span>
+          </div>
+        ))}
+      </section>
+      {quote?.why && <section className="px-4 py-3 text-[12px] text-muted">{quote.why}</section>}
+    </div>
   )
 }

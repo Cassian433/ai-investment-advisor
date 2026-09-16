@@ -1,17 +1,15 @@
 import { motion } from 'framer-motion'
 import { PolarAngleAxis, PolarGrid, Radar, RadarChart, ResponsiveContainer } from 'recharts'
-import AllocationDonut from '../components/AllocationDonut'
 import type { Analysis, Inputs } from '../lib/api'
 import { pct, rupees } from '../lib/format'
 import { COLORS, VOL } from '../lib/market'
-import Card from '../ui/Card'
 
-const RATIONALE: Record<string, string> = {
-  fd: 'Capital protection. Fixed 7% with no drawdown; anchors the portfolio.',
-  gold: 'Inflation hedge. Historically moves against equities in a sell-off.',
-  nifty: 'Core equity. Broad exposure to the 50 largest NSE companies at low cost.',
-  bluechip: 'Growth. Concentrated large-cap positions with higher expected return.',
-  crypto: 'Satellite. Small, high-variance allocation for asymmetric upside.',
+const WHY: Record<string, string> = {
+  fd: 'Fixed 7% with no swings. The part you never worry about.',
+  gold: 'Tends to hold value when stocks fall. A cushion.',
+  nifty: 'The 50 biggest companies on the NSE in one fund, at low cost.',
+  bluechip: 'Large established companies with room to grow. Higher return, bigger swings.',
+  crypto: 'Small slice, very volatile. Could go far either way.',
 }
 
 export default function Portfolio({ result, inputs }: { result: Analysis; inputs: Inputs }) {
@@ -20,7 +18,6 @@ export default function Portfolio({ result, inputs }: { result: Analysis; inputs
   const equity = rows.filter((r) => r.key === 'nifty' || r.key === 'bluechip').reduce((s, r) => s + r.weight, 0)
   const liquid = rows.filter((r) => r.key !== 'fd').reduce((s, r) => s + r.weight, 0)
   const hhi = rows.reduce((s, r) => s + r.weight * r.weight, 0)
-
   const radar = [
     { k: 'Growth', v: Math.min(100, (result.projection.cagr / 0.2) * 100) },
     { k: 'Stability', v: Math.max(0, 100 - vol * 350) },
@@ -30,84 +27,71 @@ export default function Portfolio({ result, inputs }: { result: Analysis; inputs
   ]
 
   return (
-    <motion.div initial="hidden" animate="show" variants={{ show: { transition: { staggerChildren: 0.06 } } }} className="space-y-4">
-      <div className="cells lg:grid-cols-12">
-        <AllocationDonut allocation={result.allocation} total={inputs.amount} className="lg:col-span-7" />
-        <Card title="Portfolio profile" className="lg:col-span-5">
-          <div className="h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <RadarChart data={radar} outerRadius="75%">
-                <PolarGrid stroke="#202634" />
-                <PolarAngleAxis dataKey="k" tick={{ fill: '#8b93a3', fontSize: 11 }} />
-                <Radar dataKey="v" stroke="#5a86d8" fill="#5a86d8" fillOpacity={0.25} isAnimationActive animationDuration={900} />
-              </RadarChart>
-            </ResponsiveContainer>
+    <div className="space-y-3">
+      <div className="cells grid-cols-2 lg:grid-cols-4">
+        {[
+          ['Capital', rupees(inputs.amount), ''],
+          ['Equity', `${Math.round(equity * 100)}%`, 'NIFTY + BLUECHIP'],
+          ['Expected return', pct(result.projection.cagr * 100), 'PER YEAR'],
+          ['Typical swing', `±${(vol * 100).toFixed(1)}%`, `BAD YEAR −${(vol * 180).toFixed(0)}%`],
+        ].map(([k, v, s]) => (
+          <div key={k} className="px-4 py-3">
+            <div className="eyebrow">{k}</div>
+            <div className="mono mt-1.5 text-[20px] font-medium leading-none">{v}</div>
+            {s && <div className="mono mt-1.5 text-[10.5px] text-subtle">{s}</div>}
           </div>
-          <div className="mono mt-2 grid grid-cols-3 gap-2 text-center text-xs">
-            <div className="rounded bg-panel-2 px-2 py-2">
-              <div className="text-muted">Equity</div>
-              <div className="mt-0.5 text-sm">{Math.round(equity * 100)}%</div>
-            </div>
-            <div className="rounded bg-panel-2 px-2 py-2">
-              <div className="text-muted">Volatility</div>
-              <div className="mt-0.5 text-sm">{(vol * 100).toFixed(1)}%</div>
-            </div>
-            <div className="rounded bg-panel-2 px-2 py-2">
-              <div className="text-muted">Max drawdown</div>
-              <div className="mt-0.5 text-sm text-down">-{(vol * 180).toFixed(0)}%</div>
-            </div>
-          </div>
-        </Card>
+        ))}
       </div>
-
-      <div className="cells">
-      <Card title="Positions" right={<span className="mono text-xs text-muted">{rows.length} asset classes · {rupees(inputs.amount)}</span>}>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+      <div className="cells lg:grid-cols-12">
+        <section className="p-4 lg:col-span-8">
+          <div className="eyebrow">Positions</div>
+          <div className="mt-3 flex h-1.5 w-full overflow-hidden">
+            {rows.map((r) => (
+              <motion.div key={r.key} style={{ background: COLORS[r.key] }} initial={false} animate={{ width: `${r.weight * 100}%` }} transition={{ duration: 0.5 }} />
+            ))}
+          </div>
+          <table className="mt-2 w-full text-[12px]">
             <thead>
-              <tr className="text-[11px] uppercase tracking-wider text-muted">
-                <th className="pb-3 text-left font-semibold">Asset</th>
-                <th className="pb-3 text-right font-semibold">Weight</th>
-                <th className="pb-3 text-right font-semibold">Amount</th>
-                <th className="pb-3 text-right font-semibold">Exp. return</th>
-                <th className="pb-3 text-right font-semibold">Volatility</th>
-                <th className="pb-3 pl-6 text-left font-semibold">Rationale</th>
+              <tr className="label text-left">
+                <th className="py-1.5 font-normal">Holding</th>
+                <th className="py-1.5 text-right font-normal">Weight</th>
+                <th className="py-1.5 text-right font-normal">Amount</th>
+                <th className="py-1.5 text-right font-normal">Exp. return</th>
+                <th className="py-1.5 text-right font-normal">Vol</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-line">
+            <tbody>
               {rows.map((r) => (
-                <tr key={r.key}>
-                  <td className="py-3">
-                    <div className="flex items-center gap-2.5">
-                      <span className="h-2.5 w-2.5 rounded-sm" style={{ background: COLORS[r.key] }} />
+                <tr key={r.key} className="border-t border-line align-top">
+                  <td className="py-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className="h-2 w-2" style={{ background: COLORS[r.key] }} />
                       <span className="font-medium">{r.name}</span>
                     </div>
+                    <div className="mt-0.5 text-[11px] text-muted">{WHY[r.key]}</div>
                   </td>
-                  <td className="mono py-3 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <span className="h-1.5 w-20 overflow-hidden rounded-full bg-panel-2">
-                        <motion.span
-                          className="block h-full"
-                          style={{ background: COLORS[r.key] }}
-                          initial={{ width: 0 }}
-                          animate={{ width: `${r.weight * 100}%` }}
-                          transition={{ duration: 0.9, delay: 0.2 }}
-                        />
-                      </span>
-                      {Math.round(r.weight * 100)}%
-                    </div>
-                  </td>
-                  <td className="mono py-3 text-right font-medium">{rupees(r.amount)}</td>
-                  <td className="mono py-3 text-right text-up">{pct(r.expected_return * 100)}</td>
-                  <td className="mono py-3 text-right text-muted">{((VOL[r.key] ?? 0.1) * 100).toFixed(0)}%</td>
-                  <td className="py-3 pl-6 text-xs text-muted">{RATIONALE[r.key]}</td>
+                  <td className="mono py-2.5 text-right">{Math.round(r.weight * 100)}%</td>
+                  <td className="mono py-2.5 text-right">{rupees(r.amount)}</td>
+                  <td className="mono py-2.5 text-right text-up">{pct(r.expected_return * 100)}</td>
+                  <td className="mono py-2.5 text-right text-muted">{Math.round((VOL[r.key] ?? 0.1) * 100)}%</td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
-      </Card>
+        </section>
+        <section className="p-4 lg:col-span-4">
+          <div className="eyebrow">Profile</div>
+          <div className="h-60">
+            <ResponsiveContainer width="100%" height="100%">
+              <RadarChart data={radar} outerRadius="72%">
+                <PolarGrid stroke="#1c1f27" />
+                <PolarAngleAxis dataKey="k" tick={{ fill: '#8f93a0', fontSize: 10, fontFamily: 'JetBrains Mono' }} />
+                <Radar dataKey="v" stroke="#f5a524" fill="#f5a524" fillOpacity={0.2} isAnimationActive animationDuration={800} />
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
       </div>
-    </motion.div>
+    </div>
   )
 }

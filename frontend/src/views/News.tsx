@@ -1,101 +1,78 @@
 import { motion } from 'framer-motion'
 import { useState } from 'react'
 import type { Mood, NewsItem } from '../lib/api'
-import Card from '../ui/Card'
 
 type Filter = 'all' | NewsItem['sentiment']
 
-const CHIP: Record<NewsItem['sentiment'], string> = {
-  positive: 'bg-up/15 text-up border-up/30',
-  neutral: 'bg-panel-2 text-muted border-line',
-  negative: 'bg-down/15 text-down border-down/30',
-}
-
 function ago(iso: string): string {
   const h = Math.floor((Date.now() - new Date(iso).getTime()) / 3_600_000)
-  if (h < 1) return 'just now'
-  if (h < 24) return `${h}h ago`
-  return `${Math.floor(h / 24)}d ago`
+  if (h < 1) return 'NOW'
+  if (h < 24) return `${h}H`
+  return `${Math.floor(h / 24)}D`
 }
 
-export default function News({ news, mood }: { news: NewsItem[]; mood: Mood }) {
+export default function News({ news, mood }: { news: NewsItem[]; mood: Mood | null }) {
   const [filter, setFilter] = useState<Filter>('all')
-  const counts = {
-    positive: news.filter((n) => n.sentiment === 'positive').length,
-    neutral: news.filter((n) => n.sentiment === 'neutral').length,
-    negative: news.filter((n) => n.sentiment === 'negative').length,
-  }
   const shown = news.filter((n) => filter === 'all' || n.sentiment === filter)
-  const pos = (mood.score + 1) / 2
+  const counts = { positive: 0, neutral: 0, negative: 0 }
+  news.forEach((n) => counts[n.sentiment]++)
+  const pos = mood ? (mood.score + 1) / 2 : 0.5
+  const tone = mood?.label === 'Optimistic' ? 'text-up' : mood?.label === 'Cautious' ? 'text-down' : 'text-amber'
 
   return (
-    <motion.div initial="hidden" animate="show" variants={{ show: { transition: { staggerChildren: 0.06 } } }} className="cells lg:grid-cols-12">
-      <Card title="Market sentiment" className="lg:col-span-4" highlight>
-        <div className="display text-3xl font-semibold">{mood.label}</div>
-        <div className="mono mt-1 text-xs text-muted">score {mood.score >= 0 ? '+' : ''}{mood.score.toFixed(2)} · {news.length} headlines</div>
-        <div className="relative mt-5 h-2 w-full rounded-full bg-gradient-to-r from-down via-gold to-up opacity-90">
-          <motion.span
-            className="absolute -top-1.5 h-5 w-5 -translate-x-1/2 rounded-full border-[3px] border-bg bg-white shadow"
-            initial={{ left: '50%' }}
-            animate={{ left: `${pos * 100}%` }}
-            transition={{ duration: 1, ease: 'easeOut' }}
-          />
+    <div className="cells lg:grid-cols-12">
+      <section className="p-4 lg:col-span-4">
+        <div className="eyebrow">Market mood</div>
+        <div className={`mono mt-2 text-[30px] font-medium leading-none ${tone}`}>{(mood?.label ?? '—').toUpperCase()}</div>
+        <div className="mono mt-1.5 text-[11px] text-muted">
+          SCORE {mood ? (mood.score >= 0 ? '+' : '') + mood.score.toFixed(2) : '—'} · {news.length} HEADLINES
         </div>
-        <div className="mt-2 flex justify-between text-[11px] text-subtle">
+        <div className="relative mt-5 h-1.5 w-full bg-gradient-to-r from-down via-amber to-up">
+          <motion.span className="absolute -top-[5px] h-4 w-[3px] bg-text" initial={false} animate={{ left: `${pos * 100}%` }} transition={{ duration: 0.8 }} />
+        </div>
+        <div className="label mt-2 flex justify-between">
           <span>Bearish</span>
           <span>Bullish</span>
         </div>
-        <div className="mono mt-6 grid grid-cols-3 gap-2 text-center text-xs">
-          <div className="rounded bg-up/10 px-2 py-2 text-up">
-            <div className="text-lg font-medium">{counts.positive}</div>positive
+        <div className="mono mt-5 grid grid-cols-3 divide-x divide-line border border-line text-center text-[11px]">
+          <div className="py-2">
+            <div className="text-[18px] text-up">{counts.positive}</div>POS
           </div>
-          <div className="rounded bg-panel-2 px-2 py-2 text-muted">
-            <div className="text-lg font-medium">{counts.neutral}</div>neutral
+          <div className="py-2">
+            <div className="text-[18px] text-muted">{counts.neutral}</div>NEU
           </div>
-          <div className="rounded bg-down/10 px-2 py-2 text-down">
-            <div className="text-lg font-medium">{counts.negative}</div>negative
+          <div className="py-2">
+            <div className="text-[18px] text-down">{counts.negative}</div>NEG
           </div>
         </div>
-        <p className="mt-5 text-xs leading-relaxed text-muted">
-          Each headline is scored on its wording. The mood is the balance of positive against negative stories in today's feed.
-        </p>
-      </Card>
-
-      <Card
-        title="Headlines"
-        className="lg:col-span-8"
-        right={
-          <div className="flex gap-1">
+      </section>
+      <section className="p-4 lg:col-span-8">
+        <div className="flex items-center justify-between">
+          <span className="eyebrow">Headlines</span>
+          <div className="flex border border-line">
             {(['all', 'positive', 'neutral', 'negative'] as Filter[]).map((f) => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={`rounded px-2 py-1 text-xs capitalize transition-colors cursor-pointer ${
-                  filter === f ? 'bg-panel-2 text-text' : 'text-muted hover:text-text'
-                }`}
-              >
+              <button key={f} onClick={() => setFilter(f)} className={`mono px-2.5 py-0.5 text-[10.5px] uppercase cursor-pointer ${filter === f ? 'bg-amber font-semibold text-bg' : 'text-muted hover:text-text'}`}>
                 {f}
               </button>
             ))}
           </div>
-        }
-      >
-        <ul className="divide-y divide-line">
-          {shown.map((n, i) => (
-            <motion.li key={n.title} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }} className="flex items-start gap-4 py-3.5 first:pt-0">
-              <span className={`mt-0.5 shrink-0 rounded border px-2 py-0.5 text-[11px] font-semibold capitalize ${CHIP[n.sentiment]}`}>{n.sentiment}</span>
+        </div>
+        <ul className="mt-1">
+          {shown.map((n) => (
+            <li key={n.title} className="flex items-start gap-3 border-b border-line py-3 last:border-b-0">
+              <span className={`mono mt-[2px] w-9 shrink-0 text-[10px] ${n.sentiment === 'positive' ? 'text-up' : n.sentiment === 'negative' ? 'text-down' : 'text-subtle'}`}>{n.sentiment.slice(0, 3).toUpperCase()}</span>
               <div className="min-w-0 flex-1">
-                <a href={n.url} target={n.url === '#' ? undefined : '_blank'} rel="noreferrer" className="block text-[15px] leading-snug hover:text-accent transition-colors">
+                <a href={n.url} target={n.url === '#' ? undefined : '_blank'} rel="noreferrer" className="text-[13px] leading-snug hover:text-amber">
                   {n.title}
                 </a>
-                <div className="mono mt-1 text-xs text-muted">
-                  {n.source} · {ago(n.published)}
+                <div className="mono mt-0.5 text-[10px] text-subtle">
+                  {n.source.toUpperCase()} · {ago(n.published)}
                 </div>
               </div>
-            </motion.li>
+            </li>
           ))}
         </ul>
-      </Card>
-    </motion.div>
+      </section>
+    </div>
   )
 }

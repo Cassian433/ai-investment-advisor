@@ -7,6 +7,7 @@ export type Allocation = {
 }
 
 export type Pick = {
+  sector?: string
   ticker: string
   name: string
   price: number
@@ -71,4 +72,29 @@ export async function fetchNews(): Promise<{ news: NewsItem[]; market_mood: Mood
   const res = await fetch('/api/news')
   if (!res.ok) throw new Error(`news failed: ${res.status}`)
   return res.json()
+}
+
+export type Quote = Pick & { sector: string; prev_close: number | null; day_high: number | null; day_low: number | null; year_high: number | null; year_low: number | null; volume: number | null; market_cap: number | null }
+export type SearchHit = { ticker: string; name: string; sector: string }
+export type HistPoint = { t: string; o: number; h: number; l: number; c: number; v: number }
+export type Range = '1w' | '1m' | '3m' | '1y' | '5y'
+
+export async function fetchQuotes(tickers: string[]): Promise<Quote[]> {
+  if (!tickers.length) return []
+  const res = await fetch(`/api/quotes?tickers=${encodeURIComponent(tickers.join(','))}`)
+  if (!res.ok) throw new Error(`quotes failed: ${res.status}`)
+  return (await res.json()).quotes
+}
+
+export async function searchStocks(q: string): Promise<SearchHit[]> {
+  const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`)
+  if (!res.ok) return []
+  return (await res.json()).results
+}
+
+export async function fetchHistory(tickers: string[], range: Range = '3m'): Promise<Record<string, HistPoint[]>> {
+  if (!tickers.length) return {}
+  const res = await fetch(`/api/history?tickers=${encodeURIComponent(tickers.join(','))}&range=${range}`)
+  if (!res.ok) return {}
+  return (await res.json()).series
 }

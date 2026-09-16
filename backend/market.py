@@ -41,6 +41,189 @@ PICKS = [
     },
 ]
 
+UNIVERSE = [
+    ("RELIANCE.NS", "Reliance Industries", "Energy"),
+    ("TCS.NS", "Tata Consultancy Services", "IT"),
+    ("HDFCBANK.NS", "HDFC Bank", "Banking"),
+    ("ICICIBANK.NS", "ICICI Bank", "Banking"),
+    ("INFY.NS", "Infosys", "IT"),
+    ("BHARTIARTL.NS", "Bharti Airtel", "Telecom"),
+    ("SBIN.NS", "State Bank of India", "Banking"),
+    ("ITC.NS", "ITC", "FMCG"),
+    ("HINDUNILVR.NS", "Hindustan Unilever", "FMCG"),
+    ("LT.NS", "Larsen & Toubro", "Infrastructure"),
+    ("KOTAKBANK.NS", "Kotak Mahindra Bank", "Banking"),
+    ("AXISBANK.NS", "Axis Bank", "Banking"),
+    ("BAJFINANCE.NS", "Bajaj Finance", "NBFC"),
+    ("MARUTI.NS", "Maruti Suzuki", "Auto"),
+    ("TATAMOTORS.NS", "Tata Motors", "Auto"),
+    ("M&M.NS", "Mahindra & Mahindra", "Auto"),
+    ("SUNPHARMA.NS", "Sun Pharma", "Pharma"),
+    ("TITAN.NS", "Titan", "Consumer"),
+    ("ASIANPAINT.NS", "Asian Paints", "Consumer"),
+    ("ULTRACEMCO.NS", "UltraTech Cement", "Cement"),
+    ("NTPC.NS", "NTPC", "Power"),
+    ("POWERGRID.NS", "Power Grid", "Power"),
+    ("ONGC.NS", "ONGC", "Energy"),
+    ("COALINDIA.NS", "Coal India", "Mining"),
+    ("TATASTEEL.NS", "Tata Steel", "Metals"),
+    ("JSWSTEEL.NS", "JSW Steel", "Metals"),
+    ("HINDALCO.NS", "Hindalco", "Metals"),
+    ("ADANIENT.NS", "Adani Enterprises", "Conglomerate"),
+    ("ADANIPORTS.NS", "Adani Ports", "Infrastructure"),
+    ("WIPRO.NS", "Wipro", "IT"),
+    ("HCLTECH.NS", "HCL Technologies", "IT"),
+    ("TECHM.NS", "Tech Mahindra", "IT"),
+    ("NESTLEIND.NS", "Nestle India", "FMCG"),
+    ("BAJAJFINSV.NS", "Bajaj Finserv", "Finance"),
+    ("DRREDDY.NS", "Dr. Reddy's", "Pharma"),
+    ("CIPLA.NS", "Cipla", "Pharma"),
+    ("DIVISLAB.NS", "Divi's Labs", "Pharma"),
+    ("EICHERMOT.NS", "Eicher Motors", "Auto"),
+    ("HEROMOTOCO.NS", "Hero MotoCorp", "Auto"),
+    ("BRITANNIA.NS", "Britannia", "FMCG"),
+    ("GRASIM.NS", "Grasim", "Cement"),
+    ("INDUSINDBK.NS", "IndusInd Bank", "Banking"),
+    ("TATACONSUM.NS", "Tata Consumer", "FMCG"),
+    ("APOLLOHOSP.NS", "Apollo Hospitals", "Healthcare"),
+    ("ETERNAL.NS", "Eternal (Zomato)", "Internet"),
+    ("PAYTM.NS", "Paytm", "Fintech"),
+    ("IRCTC.NS", "IRCTC", "Travel"),
+    ("DMART.NS", "Avenue Supermarts", "Retail"),
+    ("GOLDBEES.NS", "Nippon India Gold ETF", "Gold"),
+    ("NIFTYBEES.NS", "Nippon Nifty 50 ETF", "Index fund"),
+    ("BTC-INR", "Bitcoin", "Crypto"),
+    ("ETH-INR", "Ethereum", "Crypto"),
+]
+UNIVERSE_BY_TICKER = {t: {"ticker": t, "name": n, "sector": sec} for t, n, sec in UNIVERSE}
+
+
+def search(q: str, limit: int = 8) -> list[dict]:
+    q = q.strip().lower()
+    if not q:
+        return []
+    scored = []
+    for t, n, sec in UNIVERSE:
+        sym = t.split(".")[0].lower()
+        score = 0
+        if sym.startswith(q) or n.lower().startswith(q):
+            score = 3
+        elif q in sym or q in n.lower():
+            score = 2
+        elif q in sec.lower():
+            score = 1
+        if score:
+            scored.append((score, {"ticker": t, "name": n, "sector": sec}))
+    scored.sort(key=lambda x: (-x[0], x[1]["name"]))
+    out = [x[1] for x in scored[:limit]]
+    if not out and q.isalnum():
+        out = [{"ticker": q.upper() + ".NS", "name": q.upper(), "sector": ""}]
+    return out
+
+
+_quote_cache: dict[str, dict] = {}
+
+
+def _fetch_quote(ticker: str) -> dict:
+    info = yf.Ticker(ticker).fast_info
+    last = float(info["last_price"])
+    prev = float(info["previous_close"] or 0.0)
+    if not last or last <= 0:
+        raise ValueError("no last price")
+
+    def _f(key: str) -> float | None:
+        try:
+            v = info[key]
+            return float(v) if v is not None else None
+        except Exception:
+            return None
+
+    return {
+        "price": round(last, 2),
+        "change_pct": round(((last - prev) / prev * 100.0) if prev else 0.0, 2),
+        "prev_close": round(prev, 2),
+        "day_high": _f("day_high"),
+        "day_low": _f("day_low"),
+        "year_high": _f("year_high"),
+        "year_low": _f("year_low"),
+        "volume": _f("last_volume"),
+        "market_cap": _f("market_cap"),
+    }
+
+
+def get_quotes(tickers: list[str]) -> list[dict]:
+    tickers = [t for t in dict.fromkeys(tickers) if t]
+    now = time.time()
+    stale = [t for t in tickers if t not in _quote_cache or now - _quote_cache[t]["at"] > PRICE_TTL]
+    if stale:
+        with ThreadPoolExecutor(max_workers=min(8, len(stale))) as pool:
+            futures = {pool.submit(_fetch_quote, t): t for t in stale}
+            try:
+                for future in as_completed(futures, timeout=PRICE_TIMEOUT + 2):
+                    t = futures[future]
+                    try:
+                        _quote_cache[t] = {"at": time.time(), "live": True, "q": future.result()}
+                    except Exception:
+                        if t in _quote_cache:
+                            _quote_cache[t]["live"] = False
+            except TimeoutError:
+                pass
+            for future in futures:
+                future.cancel()
+    out = []
+    for t in tickers:
+        meta = UNIVERSE_BY_TICKER.get(t, {"ticker": t, "name": t.split(".")[0], "sector": ""})
+        entry = _quote_cache.get(t)
+        if not entry:
+            fb = _load_fallback().get("prices", {}).get(t)
+            if not fb:
+                continue
+            q = {"price": fb["price"], "change_pct": fb["change_pct"], "prev_close": None, "day_high": None, "day_low": None, "year_high": None, "year_low": None, "volume": None, "market_cap": None}
+            live = False
+        else:
+            q, live = entry["q"], entry["live"]
+        out.append({**meta, **q, "currency": "INR", "live": live})
+    return out
+
+
+_history_cache: dict[str, dict] = {}
+HISTORY_TTL = 600.0
+RANGES = {"1w": ("7d", "1h"), "1m": ("1mo", "1d"), "3m": ("3mo", "1d"), "1y": ("1y", "1d"), "5y": ("5y", "1wk")}
+
+
+def get_history(tickers: list[str], rng: str = "3m") -> dict[str, list[dict]]:
+    period, interval = RANGES.get(rng, RANGES["3m"])
+    tickers = [t for t in dict.fromkeys(tickers) if t]
+    key_of = lambda t: f"{t}|{rng}"
+    now = time.time()
+    need = [t for t in tickers if key_of(t) not in _history_cache or now - _history_cache[key_of(t)]["at"] > HISTORY_TTL]
+    if need:
+        try:
+            df = yf.download(need, period=period, interval=interval, progress=False, threads=True, auto_adjust=True, group_by="ticker")
+            for t in need:
+                try:
+                    sub = df[t] if len(need) > 1 or (hasattr(df.columns, "levels") and t in df.columns.get_level_values(0)) else df
+                    sub = sub.dropna(subset=["Close"])
+                    pts = [
+                        {
+                            "t": idx.isoformat(),
+                            "o": round(float(r["Open"]), 2),
+                            "h": round(float(r["High"]), 2),
+                            "l": round(float(r["Low"]), 2),
+                            "c": round(float(r["Close"]), 2),
+                            "v": int(r["Volume"]) if r["Volume"] == r["Volume"] else 0,
+                        }
+                        for idx, r in sub.iterrows()
+                    ]
+                    if pts:
+                        _history_cache[key_of(t)] = {"at": time.time(), "pts": pts}
+                except Exception:
+                    continue
+        except Exception:
+            pass
+    return {t: _history_cache[key_of(t)]["pts"] for t in tickers if key_of(t) in _history_cache}
+
+
 POSITIVE_WORDS = (
     "rally", "surge", "gain", "record", "profit", "growth", "upgrade", "beat", "strong", "high",
 )
@@ -145,39 +328,24 @@ def get_prices() -> list[dict]:
     with _lock:
         if _price_cache["value"] is not None and time.time() - _price_cache["at"] < PRICE_TTL:
             return _price_cache["value"]
-
-    live = _fetch_prices()
+    quotes = {q["ticker"]: q for q in get_quotes([p["ticker"] for p in PICKS])}
     fallback = _load_fallback()
     stored = dict(fallback.get("prices", {}))
-
     picks: list[dict] = []
+    any_live = False
     for pick in PICKS:
-        ticker = pick["ticker"]
-        if ticker in live:
-            price, change = live[ticker]
-            stored[ticker] = {"price": price, "change_pct": change}
-            is_live = True
+        q = quotes.get(pick["ticker"])
+        if q:
+            picks.append({**q, "name": pick["name"], "why": pick["why"]})
+            if q["live"]:
+                any_live = True
+                stored[pick["ticker"]] = {"price": q["price"], "change_pct": q["change_pct"]}
         else:
-            saved = stored.get(ticker, {})
-            price = float(saved.get("price", 0.0))
-            change = float(saved.get("change_pct", 0.0))
-            is_live = False
-        picks.append(
-            {
-                "ticker": ticker,
-                "name": pick["name"],
-                "price": price,
-                "change_pct": change,
-                "currency": "INR",
-                "why": pick["why"],
-                "live": is_live,
-            }
-        )
-
-    if live:
+            saved = stored.get(pick["ticker"], {"price": 0.0, "change_pct": 0.0})
+            picks.append({"ticker": pick["ticker"], "name": pick["name"], "sector": "", "price": float(saved["price"]), "change_pct": float(saved["change_pct"]), "prev_close": None, "day_high": None, "day_low": None, "year_high": None, "year_low": None, "volume": None, "market_cap": None, "currency": "INR", "why": pick["why"], "live": False})
+    if any_live:
         fallback["prices"] = stored
         _save_fallback(fallback)
-
     with _lock:
         _price_cache["at"] = time.time()
         _price_cache["value"] = picks

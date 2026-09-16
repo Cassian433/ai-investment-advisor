@@ -81,6 +81,21 @@ def prices() -> dict:
     return {"picks": market.get_prices(), "indices": market.get_indices(), "generated_at": _now_iso()}
 
 
+@app.get("/api/quotes")
+def quotes(tickers: str) -> dict:
+    return {"quotes": market.get_quotes(tickers.split(",")), "generated_at": _now_iso()}
+
+
+@app.get("/api/search")
+def search(q: str) -> dict:
+    return {"results": market.search(q)}
+
+
+@app.get("/api/history")
+def history(tickers: str, range: str = "3m") -> dict:
+    return {"range": range, "series": market.get_history(tickers.split(","), range)}
+
+
 @app.get("/api/news")
 def news() -> dict:
     items, market_mood = market.get_news()

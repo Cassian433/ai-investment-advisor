@@ -1,24 +1,24 @@
 {
   "prices": {
     "RELIANCE.NS": {
-      "price": 1251.0,
-      "change_pct": 1.27
+      "price": 1250.5,
+      "change_pct": 1.23
     },
     "TCS.NS": {
-      "price": 2220.0,
-      "change_pct": -1.38
+      "price": 2211.5,
+      "change_pct": -1.75
     },
     "HDFCBANK.NS": {
-      "price": 716.7,
-      "change_pct": 0.02
+      "price": 716.15,
+      "change_pct": -0.06
     },
     "GOLDBEES.NS": {
-      "price": 124.84,
-      "change_pct": 0.99
+      "price": 124.71,
+      "change_pct": 0.88
     },
     "BTC-INR": {
-      "price": 7275506.0,
-      "change_pct": 0.25
+      "price": 7285464.5,
+      "change_pct": 0.39
     }
   },
   "news": [
