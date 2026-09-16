@@ -12,13 +12,13 @@ const NAV: { key: View; label: string; code: string }[] = [
   { key: 'news', label: 'News', code: 'F4' },
 ]
 
-const FACTS: [string, string][] = [
-  ['DATA', 'Yahoo Finance · NSE, indices, crypto · 60s refresh'],
-  ['RISK', 'Logistic regression · 2,000 investor profiles'],
-  ['ALLOC', 'Rule-based optimiser · 5 asset classes'],
-  ['PROJ', 'Monte Carlo · 180 paths · log-normal'],
-  ['NEWS', 'Keyword sentiment · market mood index'],
-  ['LLM', 'Model-agnostic harness · Claude Sonnet · live context pipeline'],
+const FACTS: [string, string, string][] = [
+  ['Market feed', 'Live NSE, index and crypto prices', 'Refreshed every 60 seconds'],
+  ['Risk model', 'Machine learning, trained on 2,000 investor profiles', 'Scores you from 0 to 100'],
+  ['Portfolio engine', 'Splits capital across 5 asset classes', 'Adjusts for time horizon'],
+  ['Projection', 'Monte Carlo simulation, 180 scenarios', 'Best, base and worst case'],
+  ['News engine', 'NLP sentiment on live headlines', 'Rolled into a market mood index'],
+  ['AI assistant', 'LLM harness with live market context', 'Runs on Claude Sonnet'],
 ]
 
 export function Sidebar({ view, setView, hasPlan, onNew, onAssistant }: { view: View; setView: (v: View) => void; hasPlan: boolean; onNew: () => void; onAssistant: () => void }) {
@@ -66,13 +66,14 @@ export function Sidebar({ view, setView, hasPlan, onNew, onAssistant }: { view: 
       <button onClick={onNew} className="mx-3 mt-2 border border-line-2 px-3 py-2 text-[12px] font-medium text-muted transition-colors hover:border-amber hover:text-text cursor-pointer">
         New analysis
       </button>
-      <div className="mt-auto border-t border-line p-3">
-        <div className="eyebrow mb-2">Under the hood</div>
-        <dl className="mono space-y-1.5 text-[10px] leading-snug">
-          {FACTS.map(([k, v]) => (
-            <div key={k} className="flex gap-2">
-              <dt className="w-9 shrink-0 text-amber">{k}</dt>
-              <dd className="text-subtle">{v}</dd>
+      <div className="mt-auto border-t border-line">
+        <div className="eyebrow border-b border-line px-4 py-2">Under the hood</div>
+        <dl>
+          {FACTS.map(([k, v, s2]) => (
+            <div key={k} className="border-b border-line px-4 py-2 last:border-b-0">
+              <dt className="text-[11.5px] font-semibold text-text">{k}</dt>
+              <dd className="text-[10.5px] leading-snug text-muted">{v}</dd>
+              <dd className="mono text-[9.5px] uppercase tracking-wider text-subtle">{s2}</dd>
             </div>
           ))}
         </dl>
